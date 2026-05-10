@@ -9,6 +9,16 @@ const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
 ].join(" ");
 
+function getAppOrigin() {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+
+  if (configuredUrl && !configuredUrl.includes("localhost")) {
+    return configuredUrl;
+  }
+
+  return window.location.origin;
+}
+
 export function SignInWithGoogle() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +31,7 @@ export function SignInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${getAppOrigin()}/auth/callback`,
         scopes: GOOGLE_SCOPES,
         queryParams: {
           access_type: "offline",
