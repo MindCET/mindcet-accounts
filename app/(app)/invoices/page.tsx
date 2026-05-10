@@ -2,6 +2,7 @@ import { FileText, Link2 } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { ScanInvoicesButton } from "@/components/invoices/ScanInvoicesButton";
+import { createAuthenticatedStorageClient } from "@/lib/supabase/authenticated-storage";
 import { createClient } from "@/lib/supabase/server";
 import type { Invoice } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -44,14 +45,19 @@ export default async function InvoicesPage({
     .returns<InvoiceWithService[]>();
 
   const all = invoices ?? [];
+  const storageSupabase = user
+    ? await createAuthenticatedStorageClient(supabase).catch(() => null)
+    : null;
   const signedPdfUrls = new Map(
     await Promise.all(
       all
         .filter((invoice) => invoice.pdf_storage_path)
         .map(async (invoice) => {
-          const { data } = await supabase.storage
-            .from("invoice-pdfs")
-            .createSignedUrl(invoice.pdf_storage_path!, 60 * 10);
+          const { data } = storageSupabase
+            ? await storageSupabase.storage
+                .from("invoice-pdfs")
+                .createSignedUrl(invoice.pdf_storage_path!, 60 * 10)
+            : { data: null };
 
           return [invoice.id, data?.signedUrl ?? null] as const;
         }),

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { google, gmail_v1 } from "googleapis";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAuthenticatedStorageClient } from "@/lib/supabase/authenticated-storage";
 import type { Database, Service } from "@/lib/types";
 
 const INVOICE_QUERY =
@@ -347,8 +348,9 @@ async function importFirstPdfAttachment(
   const bytes = base64UrlToBytes(data);
   const safeName = sanitizeFileName(pdf.filename || `${messageId}.pdf`);
   const storagePath = `${account.workspace_id}/${account.id}/${messageId}/${safeName}`;
+  const storageSupabase = await createAuthenticatedStorageClient(supabase);
 
-  const { error } = await supabase.storage
+  const { error } = await storageSupabase.storage
     .from(INVOICE_PDF_BUCKET)
     .upload(storagePath, bytes, {
       contentType: "application/pdf",
