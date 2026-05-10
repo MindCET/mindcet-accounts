@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getCanonicalAppOrigin } from "@/lib/app-origin";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -6,9 +7,10 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/";
   const error = searchParams.get("error");
+  const appOrigin = getCanonicalAppOrigin(origin);
 
   if (error) {
-    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error)}`);
+    return NextResponse.redirect(`${appOrigin}/login?error=${encodeURIComponent(error)}`);
   }
 
   if (code) {
@@ -41,12 +43,16 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${appOrigin}${getSafeNextPath(next)}`);
     }
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(exchangeError.message)}`,
+      `${appOrigin}/login?error=${encodeURIComponent(exchangeError.message)}`,
     );
   }
 
-  return NextResponse.redirect(`${origin}/login?error=missing_code`);
+  return NextResponse.redirect(`${appOrigin}/login?error=missing_code`);
+}
+
+function getSafeNextPath(next: string) {
+  return next.startsWith("/") && !next.startsWith("//") ? next : "/";
 }

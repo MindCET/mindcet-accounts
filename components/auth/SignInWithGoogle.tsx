@@ -2,22 +2,13 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getCanonicalAppOrigin } from "@/lib/app-origin";
 import { Button } from "@/components/ui/Button";
 
 const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/calendar.events",
 ].join(" ");
-
-function getAppOrigin() {
-  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-
-  if (configuredUrl && !configuredUrl.includes("localhost")) {
-    return configuredUrl;
-  }
-
-  return window.location.origin;
-}
 
 export function SignInWithGoogle() {
   const [loading, setLoading] = useState(false);
@@ -31,7 +22,7 @@ export function SignInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${getAppOrigin()}/auth/callback`,
+        redirectTo: `${getCanonicalAppOrigin(window.location.origin)}/auth/callback`,
         scopes: GOOGLE_SCOPES,
         queryParams: {
           access_type: "offline",
