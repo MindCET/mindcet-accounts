@@ -1,12 +1,16 @@
-import { FileText, Link2 } from "lucide-react";
+import { Check, FileText, Link2, Plus } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { ScanInvoicesButton } from "@/components/invoices/ScanInvoicesButton";
 import { createClient } from "@/lib/supabase/server";
 import { createStorageSignedUrl } from "@/lib/supabase/storage";
-import type { Invoice } from "@/lib/types";
+import type { Invoice, Service } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { scanInvoices } from "./actions";
+import {
+  assignInvoiceToService,
+  createServiceFromInvoice,
+  scanInvoices,
+} from "./actions";
 
 type InvoiceWithService = Invoice & {
   services: { name: string } | null;
@@ -22,6 +26,8 @@ export default async function InvoicesPage({
     inserted?: string;
     skipped?: string;
     error?: string;
+    assigned?: string;
+    created?: string;
   }>;
 }) {
   const scanStatus = await searchParams;
@@ -44,7 +50,14 @@ export default async function InvoicesPage({
     .limit(50)
     .returns<InvoiceWithService[]>();
 
+  const { data: services } = await supabase
+    .from("services")
+    .select("id,name,vendor")
+    .order("name", { ascending: true })
+    .returns<Pick<Service, "id" | "name" | "vendor">[]>();
+
   const all = invoices ?? [];
+  const serviceOptions = services ?? [];
   const signedPdfUrls = new Map(
     await Promise.all(
       all
@@ -104,6 +117,14 @@ export default async function InvoicesPage({
         </div>
       )}
 
+      {(scanStatus.assigned || scanStatus.created) && (
+        <div className="mb-4 rounded-[--radius] border border-[--color-accent-green]/30 bg-[--color-accent-green]/10 px-4 py-3 text-sm text-[--color-accent-green]">
+          {scanStatus.created
+            ? "נוצר שירות חדש והחשבונית שויכה אליו."
+            : "החשבונית שויכה לשירות."}
+        </div>
+      )}
+
       {all.length === 0 ? (
         <Card className="text-center py-16">
           <div className="mx-auto mb-4 size-12 rounded-[--radius-md] bg-[--color-surface-2] grid place-items-center text-[--color-brand-400]">
@@ -125,6 +146,7 @@ export default async function InvoicesPage({
                   <th className="text-right font-medium px-5 py-3">שירות</th>
                   <th className="text-left font-medium px-5 py-3">סכום</th>
                   <th className="text-right font-medium px-5 py-3">סטטוס</th>
+                  <th className="text-right font-medium px-5 py-3">שיוך</th>
                   <th className="text-right font-medium px-5 py-3">PDF</th>
                 </tr>
               </thead>
@@ -143,6 +165,76 @@ export default async function InvoicesPage({
                     </td>
                     <td className="px-5 py-4">
                       <StatusBadge status={invoice.status} />
+                    </td>
+                    <td className="px-5 py-4 min-w-72">
+                      {invoice.service_id ? (
+                        <span className="text-xs text-[--color-muted]">משויך</span>
+                      ) : (
+                        <div className="grid gap-2">
+                          <form
+                            action={assignInvoiceToService}
+                            className="flex items-center gap-2"
+                          >
+                            <input type="hidden" name="invoice_id" value={invoice.id} />
+                            <select
+                              name="service_id"
+                              required
+                              className="input h-9 min-w-40 text-xs"
+                              defaultValue=""
+                            >
+                              <option value="" disabled>
+                                בחר שירות קיים
+                              </option>
+                              {serviceOptions.map((service) => (
+                                <option key={service.id} value={service.id}>
+                                  {service.name}
+                                  {service.vendor ? ` · ${service.vendor}` : ""}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="submit"
+                              className="inline-flex h-9 items-center justify-center gap-1 rounded-[--radius-sm] bg-[--color-surface-2] px-3 text-xs font-medium text-[--color-foreground] hover:bg-[--color-border-soft]"
+                              title="שייך לשירות קיים"
+                            >
+                              <Check className="size-3.5" />
+                              שייך
+                            </button>
+                          </form>
+
+                          <form
+                            action={createServiceFromInvoice}
+                            className="grid grid-cols-[minmax(10rem,1fr)_auto_auto] items-center gap-2"
+                          >
+                            <input type="hidden" name="invoice_id" value={invoice.id} />
+                            <input
+                              name="service_name"
+                              required
+                              className="input h-9 text-xs"
+                              placeholder="שם שירות חדש"
+                              defaultValue={invoice.vendor_raw ?? ""}
+                            />
+                            <select
+                              name="billing_cycle"
+                              className="input h-9 w-24 text-xs"
+                              defaultValue="monthly"
+                              aria-label="מחזור חיוב"
+                            >
+                              <option value="monthly">חודשי</option>
+                              <option value="annual">שנתי</option>
+                              <option value="one_time">חד פעמי</option>
+                            </select>
+                            <button
+                              type="submit"
+                              className="inline-flex h-9 items-center justify-center gap-1 rounded-[--radius-sm] bg-[--color-brand-500] px-3 text-xs font-medium text-white hover:bg-[--color-brand-400]"
+                              title="הוסף שירות ושייך חשבונית"
+                            >
+                              <Plus className="size-3.5" />
+                              הוסף
+                            </button>
+                          </form>
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       {signedPdfUrls.get(invoice.id) ? (
