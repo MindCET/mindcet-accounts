@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil, Tag, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Grid2X2, List, Pencil, Tag, Trash2 } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { Service } from "@/lib/types";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { deleteSelectedServices } from "@/app/(app)/services/actions";
+
+type ViewMode = "cards" | "list";
 
 export function ServicesBulkList({ services }: { services: Service[] }) {
   const [selected, setSelected] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const allSelected = selected.length === services.length;
 
@@ -38,7 +41,8 @@ export function ServicesBulkList({ services }: { services: Service[] }) {
           />
           בחירת כל השירותים
         </label>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <ViewModeSwitch viewMode={viewMode} onChange={setViewMode} />
           <span className="text-xs text-[--color-muted]">
             {selected.length} נבחרו
           </span>
@@ -62,80 +66,267 @@ export function ServicesBulkList({ services }: { services: Service[] }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {services.map((service) => {
-          const checked = selectedSet.has(service.id);
-
-          return (
-            <Card key={service.id} className="!p-5">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <label className="mt-1">
-                  <input
-                    type="checkbox"
-                    name="serviceIds"
-                    value={service.id}
-                    className="size-4 accent-[--color-brand-500]"
-                    checked={checked}
-                    onChange={() => toggleService(service.id)}
-                  />
-                </label>
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold truncate">{service.name}</div>
-                  {service.vendor && (
-                    <div className="text-xs text-[--color-muted] truncate mt-0.5">
-                      {service.vendor}
-                    </div>
-                  )}
-                </div>
-                <StatusPill status={service.status} />
-              </div>
-
-              <div className="kpi-number text-2xl">
-                {formatCurrency(Number(service.cost_amount), service.cost_currency)}
-                <span className="text-xs text-[--color-muted-2] font-normal mr-1">
-                  /{" "}
-                  {service.billing_cycle === "monthly"
-                    ? "חודש"
-                    : service.billing_cycle === "annual"
-                      ? "שנה"
-                      : "חד פעמי"}
-                </span>
-              </div>
-
-              {service.next_renewal_date && (
-                <div className="mt-3 text-xs text-[--color-muted]">
-                  חידוש: {formatDate(service.next_renewal_date)}
-                </div>
-              )}
-
-              {service.tags.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {service.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-[--color-surface-2] text-[--color-muted]"
-                    >
-                      <Tag className="size-2.5" />
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-5 pt-4 border-t border-[--color-border-soft]">
-                <Link
-                  href={`/services/${service.id}/edit`}
-                  className="inline-flex h-8 items-center gap-2 rounded-[--radius-sm] px-3 text-xs font-medium text-[--color-muted] hover:bg-[--color-surface-2] hover:text-[--color-foreground] transition-colors"
-                >
-                  <Pencil className="size-3.5" />
-                  עריכה
-                </Link>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      {viewMode === "list" ? (
+        <ServicesTable
+          selectedSet={selectedSet}
+          services={services}
+          onToggleService={toggleService}
+        />
+      ) : (
+        <ServicesCards
+          selectedSet={selectedSet}
+          services={services}
+          onToggleService={toggleService}
+        />
+      )}
     </form>
+  );
+}
+
+function ViewModeSwitch({
+  onChange,
+  viewMode,
+}: {
+  onChange: (viewMode: ViewMode) => void;
+  viewMode: ViewMode;
+}) {
+  return (
+    <div
+      className="inline-flex items-center rounded-[--radius] border border-[--color-border-soft] bg-[--color-background] p-1"
+      aria-label="בחירת תצוגת שירותים"
+    >
+      <ViewModeButton
+        active={viewMode === "cards"}
+        label="תצוגת כרטיסיות"
+        onClick={() => onChange("cards")}
+      >
+        <Grid2X2 className="size-4" />
+      </ViewModeButton>
+      <ViewModeButton
+        active={viewMode === "list"}
+        label="תצוגת רשימה"
+        onClick={() => onChange("list")}
+      >
+        <List className="size-4" />
+      </ViewModeButton>
+    </div>
+  );
+}
+
+function ViewModeButton({
+  active,
+  children,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      className={cn(
+        "grid size-8 place-items-center rounded-[--radius-sm] text-[--color-muted] transition-colors hover:text-[--color-foreground]",
+        active && "bg-[--color-surface-2] text-[--color-foreground]",
+      )}
+      onClick={onClick}
+      title={label}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ServicesCards({
+  onToggleService,
+  selectedSet,
+  services,
+}: {
+  onToggleService: (serviceId: string) => void;
+  selectedSet: Set<string>;
+  services: Service[];
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {services.map((service) => {
+        const checked = selectedSet.has(service.id);
+
+        return (
+          <Card key={service.id} className="!p-5">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <label className="mt-1">
+                <input
+                  type="checkbox"
+                  name="serviceIds"
+                  value={service.id}
+                  className="size-4 accent-[--color-brand-500]"
+                  checked={checked}
+                  onChange={() => onToggleService(service.id)}
+                />
+              </label>
+              <ServiceTitle service={service} />
+              <StatusPill status={service.status} />
+            </div>
+
+            <ServicePrice service={service} />
+
+            {service.next_renewal_date && (
+              <div className="mt-3 text-xs text-[--color-muted]">
+                חידוש: {formatDate(service.next_renewal_date)}
+              </div>
+            )}
+
+            <Tags tags={service.tags} className="mt-4" />
+
+            <div className="mt-5 border-t border-[--color-border-soft] pt-4">
+              <EditLink serviceId={service.id} />
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+function ServicesTable({
+  onToggleService,
+  selectedSet,
+  services,
+}: {
+  onToggleService: (serviceId: string) => void;
+  selectedSet: Set<string>;
+  services: Service[];
+}) {
+  return (
+    <Card className="overflow-hidden !p-0">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[780px] text-sm">
+          <thead className="text-xs text-[--color-muted]">
+            <tr className="border-b border-[--color-border-soft]">
+              <th className="w-12 px-5 py-3 text-right font-medium"></th>
+              <th className="px-5 py-3 text-right font-medium">שירות</th>
+              <th className="px-5 py-3 text-right font-medium">סטטוס</th>
+              <th className="px-5 py-3 text-left font-medium">עלות</th>
+              <th className="px-5 py-3 text-right font-medium">חידוש</th>
+              <th className="px-5 py-3 text-right font-medium">תגיות</th>
+              <th className="px-5 py-3 text-right font-medium">פעולות</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[--color-border-soft]">
+            {services.map((service) => {
+              const checked = selectedSet.has(service.id);
+
+              return (
+                <tr key={service.id} className="hover:bg-[--color-surface-2]/50">
+                  <td className="px-5 py-4">
+                    <label className="inline-flex">
+                      <input
+                        type="checkbox"
+                        name="serviceIds"
+                        value={service.id}
+                        className="size-4 accent-[--color-brand-500]"
+                        checked={checked}
+                        onChange={() => onToggleService(service.id)}
+                      />
+                    </label>
+                  </td>
+                  <td className="px-5 py-4">
+                    <ServiceTitle service={service} />
+                  </td>
+                  <td className="px-5 py-4">
+                    <StatusPill status={service.status} />
+                  </td>
+                  <td className="px-5 py-4 text-left">
+                    <ServicePrice service={service} compact />
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 text-[--color-muted]">
+                    {service.next_renewal_date
+                      ? formatDate(service.next_renewal_date)
+                      : "-"}
+                  </td>
+                  <td className="px-5 py-4">
+                    <Tags tags={service.tags} compact />
+                  </td>
+                  <td className="px-5 py-4">
+                    <EditLink serviceId={service.id} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function ServiceTitle({ service }: { service: Service }) {
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="truncate font-semibold">{service.name}</div>
+      {service.vendor && (
+        <div className="mt-0.5 truncate text-xs text-[--color-muted]">
+          {service.vendor}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ServicePrice({
+  compact = false,
+  service,
+}: {
+  compact?: boolean;
+  service: Service;
+}) {
+  return (
+    <div className={cn("kpi-number", compact ? "text-sm" : "text-2xl")}>
+      {formatCurrency(Number(service.cost_amount), service.cost_currency)}
+      <span className="mr-1 text-xs font-normal text-[--color-muted-2]">
+        / {billingCycleLabel(service.billing_cycle)}
+      </span>
+    </div>
+  );
+}
+
+function Tags({
+  className,
+  compact = false,
+  tags,
+}: {
+  className?: string;
+  compact?: boolean;
+  tags: string[];
+}) {
+  if (tags.length === 0) {
+    return <span className="text-[--color-muted-2]">-</span>;
+  }
+
+  const visibleTags = compact ? tags.slice(0, 3) : tags;
+  const hiddenCount = tags.length - visibleTags.length;
+
+  return (
+    <div className={cn("flex flex-wrap gap-1.5", className)}>
+      {visibleTags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center gap-1 rounded-md bg-[--color-surface-2] px-2 py-0.5 text-[11px] text-[--color-muted]"
+        >
+          <Tag className="size-2.5" />
+          {tag}
+        </span>
+      ))}
+      {hiddenCount > 0 && (
+        <span className="rounded-md bg-[--color-surface-2] px-2 py-0.5 text-[11px] text-[--color-muted]">
+          +{hiddenCount}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -150,8 +341,34 @@ function StatusPill({ status }: { status: Service["status"] }) {
         : "bg-[--color-muted-2]/10 text-[--color-muted]";
 
   return (
-    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${tone}`}>
+    <span
+      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider ${tone}`}
+    >
       {label}
     </span>
   );
+}
+
+function EditLink({ serviceId }: { serviceId: string }) {
+  return (
+    <Link
+      href={`/services/${serviceId}/edit`}
+      className="inline-flex h-8 items-center gap-2 rounded-[--radius-sm] px-3 text-xs font-medium text-[--color-muted] transition-colors hover:bg-[--color-surface-2] hover:text-[--color-foreground]"
+    >
+      <Pencil className="size-3.5" />
+      עריכה
+    </Link>
+  );
+}
+
+function billingCycleLabel(billingCycle: Service["billing_cycle"]) {
+  if (billingCycle === "monthly") {
+    return "חודש";
+  }
+
+  if (billingCycle === "annual") {
+    return "שנה";
+  }
+
+  return "חד פעמי";
 }
