@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { Pencil, Plus, Tag } from "lucide-react";
+import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { ServicesBulkList } from "@/components/services/ServicesBulkList";
 
-export default async function ServicesPage() {
+export default async function ServicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const supabase = await createClient();
   const { data: services } = await supabase
     .from("services")
@@ -31,6 +36,12 @@ export default async function ServicesPage() {
         </Link>
       </div>
 
+      {error && (
+        <div className="mb-4 rounded-[--radius] border border-[--color-accent-red]/30 bg-[--color-accent-red]/10 p-3 text-sm text-[--color-accent-red]">
+          {decodeURIComponent(error)}
+        </div>
+      )}
+
       {all.length === 0 ? (
         <Card className="text-center py-16">
           <div className="text-5xl mb-4">📦</div>
@@ -46,80 +57,7 @@ export default async function ServicesPage() {
           </Link>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {all.map((service) => (
-            <Card key={service.id} className="!p-5">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="min-w-0">
-                  <div className="font-semibold truncate">{service.name}</div>
-                  {service.vendor && (
-                    <div className="text-xs text-[--color-muted] truncate mt-0.5">
-                      {service.vendor}
-                    </div>
-                  )}
-                </div>
-                <span
-                  className={
-                    "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full " +
-                    (service.status === "active"
-                      ? "bg-[--color-accent-green]/10 text-[--color-accent-green]"
-                      : service.status === "paused"
-                        ? "bg-[--color-accent-amber]/10 text-[--color-accent-amber]"
-                        : "bg-[--color-muted-2]/10 text-[--color-muted]")
-                  }
-                >
-                  {service.status === "active"
-                    ? "פעיל"
-                    : service.status === "paused"
-                      ? "מושהה"
-                      : "בוטל"}
-                </span>
-              </div>
-
-              <div className="kpi-number text-2xl">
-                {formatCurrency(Number(service.cost_amount), service.cost_currency)}
-                <span className="text-xs text-[--color-muted-2] font-normal mr-1">
-                  /{" "}
-                  {service.billing_cycle === "monthly"
-                    ? "חודש"
-                    : service.billing_cycle === "annual"
-                      ? "שנה"
-                      : "חד פעמי"}
-                </span>
-              </div>
-
-              {service.next_renewal_date && (
-                <div className="mt-3 text-xs text-[--color-muted]">
-                  חידוש: {formatDate(service.next_renewal_date)}
-                </div>
-              )}
-
-              {service.tags.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {service.tags.map((tag: string) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-[--color-surface-2] text-[--color-muted]"
-                    >
-                      <Tag className="size-2.5" />
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-5 pt-4 border-t border-[--color-border-soft]">
-                <Link
-                  href={`/services/${service.id}/edit`}
-                  className="inline-flex h-8 items-center gap-2 rounded-[--radius-sm] px-3 text-xs font-medium text-[--color-muted] hover:bg-[--color-surface-2] hover:text-[--color-foreground] transition-colors"
-                >
-                  <Pencil className="size-3.5" />
-                  עריכה
-                </Link>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <ServicesBulkList services={all} />
       )}
     </div>
   );
