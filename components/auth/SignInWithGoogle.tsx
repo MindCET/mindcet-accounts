@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getCanonicalAppOrigin } from "@/lib/app-origin";
 import { Button } from "@/components/ui/Button";
 
 const GOOGLE_SCOPES = [
@@ -22,7 +21,7 @@ export function SignInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${getCanonicalAppOrigin()}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback`,
         scopes: GOOGLE_SCOPES,
         queryParams: {
           access_type: "offline",
