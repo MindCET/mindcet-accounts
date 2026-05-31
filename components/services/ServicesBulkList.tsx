@@ -11,11 +11,22 @@ import { deleteSelectedServices } from "@/app/(app)/services/actions";
 
 type ViewMode = "cards" | "list";
 
+function groupByVendor(services: Service[]): [string, Service[]][] {
+  const map = new Map<string, Service[]>();
+  for (const service of services) {
+    const key = service.vendor?.trim() || "ללא ספק";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(service);
+  }
+  return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b, "he"));
+}
+
 export function ServicesBulkList({ services }: { services: Service[] }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const allSelected = selected.length === services.length;
+  const groups = useMemo(() => groupByVendor(services), [services]);
 
   function toggleService(serviceId: string) {
     setSelected((current) =>
@@ -67,17 +78,35 @@ export function ServicesBulkList({ services }: { services: Service[] }) {
       </div>
 
       {viewMode === "list" ? (
-        <ServicesTable
-          selectedSet={selectedSet}
-          services={services}
-          onToggleService={toggleService}
-        />
+        <div className="grid gap-6">
+          {groups.map(([vendor, group]) => (
+            <div key={vendor}>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-[--color-muted]">
+                {vendor}
+              </h2>
+              <ServicesTable
+                selectedSet={selectedSet}
+                services={group}
+                onToggleService={toggleService}
+              />
+            </div>
+          ))}
+        </div>
       ) : (
-        <ServicesCards
-          selectedSet={selectedSet}
-          services={services}
-          onToggleService={toggleService}
-        />
+        <div className="grid gap-6">
+          {groups.map(([vendor, group]) => (
+            <div key={vendor}>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[--color-muted]">
+                {vendor}
+              </h2>
+              <ServicesCards
+                selectedSet={selectedSet}
+                services={group}
+                onToggleService={toggleService}
+              />
+            </div>
+          ))}
+        </div>
       )}
     </form>
   );
