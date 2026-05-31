@@ -15,9 +15,24 @@ export default async function ServicesPage({
   const { data: services } = await supabase
     .from("services")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("vendor", { ascending: true, nullsFirst: false })
+    .order("name", { ascending: true });
 
   const all = services ?? [];
+
+  // קיבוץ לפי ספק — server-side
+  const groupMap = new Map<string, typeof all>();
+  for (const service of all) {
+    const key = service.vendor?.trim() || "ללא ספק";
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key)!.push(service);
+  }
+  // ללא ספק תמיד אחרון
+  const groups: [string, typeof all][] = [];
+  for (const [key, group] of groupMap) {
+    if (key !== "ללא ספק") groups.push([key, group]);
+  }
+  if (groupMap.has("ללא ספק")) groups.push(["ללא ספק", groupMap.get("ללא ספק")!]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -57,7 +72,7 @@ export default async function ServicesPage({
           </Link>
         </Card>
       ) : (
-        <ServicesBulkList services={all} />
+        <ServicesBulkList services={all} groups={groups} />
       )}
     </div>
   );

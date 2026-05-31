@@ -11,22 +11,17 @@ import { deleteSelectedServices } from "@/app/(app)/services/actions";
 
 type ViewMode = "cards" | "list";
 
-function groupByVendor(services: Service[]): [string, Service[]][] {
-  const map = new Map<string, Service[]>();
-  for (const service of services) {
-    const key = service.vendor?.trim() || "ללא ספק";
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(service);
-  }
-  return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b, "he"));
-}
-
-export function ServicesBulkList({ services }: { services: Service[] }) {
+export function ServicesBulkList({
+  services,
+  groups,
+}: {
+  services: Service[];
+  groups: [string, Service[]][];
+}) {
   const [selected, setSelected] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const allSelected = selected.length === services.length;
-  const groups = useMemo(() => groupByVendor(services), [services]);
 
   function toggleService(serviceId: string) {
     setSelected((current) =>
